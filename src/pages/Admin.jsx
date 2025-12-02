@@ -1,78 +1,60 @@
-// src/pages/Admin.jsx
-import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Form, Input, Button, Card, Typography, Divider, message } from 'antd';
-import { SaveOutlined, ArrowLeftOutlined } from '@ant-design/icons';
-import { articleService } from '../api/articleService';
+import { SaveOutlined, EditOutlined } from '@ant-design/icons';
+import axios from 'axios';
 
-const { Title, Text, Link } = Typography;
+const { Title, Text } = Typography;
 const { TextArea } = Input;
 
 export default function Admin() {
   const [form] = Form.useForm();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const editId = searchParams.get('edit');
+  const { id } = useParams();
+  const isEditing = !!id;
 
-  useEffect(() => {
-    // 如果是编辑模式，获取文章数据
-    if (editId) {
-      fetchArticleToEdit();
+  // 如果是编辑，加载文章数据
+  useState(() => {
+    if (isEditing) {
+      axios.get(`/api/articles/${id}`)
+        .then(({ data }) => {
+          form.setFieldsValue({
+            title: data.title,
+            content: data.content
+          });
+        })
+        .catch(err => {
+          message.error('Failed to load article');
+          console.error(err);
+        });
     }
-  }, [editId, form]);
+  }, [id, form, isEditing]);
 
-  const fetchArticleToEdit = async () => {
-    try {
-      const article = await articleService.getArticle(editId);
-      form.setFieldsValue({
-        title: article.title,
-        content: article.content
-      });
-    } catch (error) {
-      message.error(error.message);
-    }
-  };
-
-  const onFinish = async (values) => {
-    try {
-      // 添加作者信息（实际应用中应该从登录用户获取）
-      const articleData = {
-        ...values,
-        author: 'yy zhang'
-      };
-
-      if (editId) {
-        // 更新文章
-        await articleService.updateArticle(editId, articleData);
-        message.success('Article updated successfully');
-      } else {
-        // 创建新文章
-        await articleService.createArticle(articleData);
-        message.success('Article created successfully');
-      }
+  const onFinish = (values) => {
+    const { title, content } = values;
+    const excerpt = content.substring(0, 200).replace(/<[^>]*>?/gm, '');
+    
+    const request = isEditing 
+      ? axios.put(`/api/articles/${id}`, { title, content, excerpt })
+      : axios.post('/api/articles', { title, content, excerpt });
       
-      form.resetFields();
-      navigate('/articles');
-    } catch (error) {
-      message.error(error.message);
-      console.log('Failed:', error);
-    }
-  };
-
-  const onFinishFailed = (errorInfo) => {
-    console.log('Failed:', errorInfo);
+    request
+      .then(() => {
+        message.success(isEditing ? 'Article updated successfully' : 'Article published successfully');
+        form.resetFields();
+        navigate('/articles');
+      })
+      .catch(err => {
+        message.error('Failed to save article');
+        console.error(err);
+      });
   };
 
   return (
     <div style={{ padding: '30px 50px', maxWidth: '800px', margin: '0 auto' }}>
       <Title level={2} style={{ textAlign: 'center', marginBottom: '30px' }}>
-        {editId ? 'Edit Article' : 'Create New Article'}
+        {isEditing ? 'Edit Article' : 'Create New Article'}
       </Title>
-      
-      <Link to="/articles" style={{ marginBottom: '20px', display: 'inline-block' }}>
-        <Text type="link" icon={<ArrowLeftOutlined />}>Back to Articles</Text>
-      </Link>
-      
       <Card variant>
         <Form
           form={form}
@@ -80,7 +62,6 @@ export default function Admin() {
           name="article_creation_form"
           initialValues={{ remember: true }}
           onFinish={onFinish}
-          onFinishFailed={onFinishFailed}
           autoComplete="off"
         >
           <Form.Item
@@ -102,8 +83,13 @@ export default function Admin() {
           <Divider />
 
           <Form.Item>
-            <Button type="primary" htmlType="submit" block icon={<SaveOutlined />}>
-              {editId ? 'Update Article' : 'Publish Article'}
+            <Button 
+              type="primary" 
+              htmlType="submit" 
+              block 
+              icon={isEditing ? <EditOutlined /> : <SaveOutlined />}
+            >
+              {isEditing ? 'Update Article' : 'Publish Article'}
             </Button>
           </Form.Item>
         </Form>
