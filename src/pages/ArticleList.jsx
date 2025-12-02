@@ -1,36 +1,42 @@
 // src/pages/ArticleList.jsx
-import { Link } from 'react-router-dom';
-import { Card, Space, Typography, Row, Col, Divider, Button } from 'antd';
-import { ReadOutlined, PlusOutlined } from '@ant-design/icons';
+import { Link, useNavigate } from 'react-router-dom';
+import { Card, Space, Typography, Row, Col, Divider, Button, message } from 'antd';
+import { ReadOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { useEffect, useState } from 'react';
+import { articleService } from '../api/articleService';
 
 const { Title, Text, Paragraph } = Typography;
 
-// 模拟文章数据
-const mockArticles = [
-  {
-    id: 1,
-    title: 'Getting Started with React SSR',
-    excerpt: 'Learn the basics of Server-Side Rendering with React and Express.',
-    date: '2023-10-25',
-    author: 'yy zhang'
-  },
-  {
-    id: 2,
-    title: 'Vite: The Next Generation Build Tool',
-    excerpt: 'Why Vite is faster and better for modern web development.',
-    date: '2023-10-20',
-    author: 'yy zhang'
-  },
-  {
-    id: 3,
-    title: 'MySQL for Beginners',
-    excerpt: 'A simple guide to setting up and querying a MySQL database.',
-    date: '2023-10-15',
-    author: 'yy zhang'
-  },
-];
+export default function ArticleList({ initialArticles }) {
+  const [articles, setArticles] = useState(initialArticles || []);
+  const navigate = useNavigate();
 
-export default function ArticleList() {
+  useEffect(() => {
+    // 客户端渲染时获取数据
+    if (!initialArticles) {
+      fetchArticles();
+    }
+  }, [initialArticles]);
+
+  const fetchArticles = async () => {
+    try {
+      const data = await articleService.getArticles();
+      setArticles(data);
+    } catch (error) {
+      message.error(error.message);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await articleService.deleteArticle(id);
+      setArticles(articles.filter(article => article.id !== id));
+      message.success('Article deleted successfully');
+    } catch (error) {
+      message.error(error.message);
+    }
+  };
+
   return (
     <div style={{ padding: '50px', maxWidth: '1200px', margin: '0 auto' }}>
       <Row justify="space-between" align="middle" style={{ marginBottom: '30px' }}>
@@ -47,7 +53,7 @@ export default function ArticleList() {
       <Divider />
       
       <Space orientation="vertical" size="large" style={{ width: '100%' }}>
-        {mockArticles.map((article) => (
+        {articles.map((article) => (
           <Card
             key={article.id}
             title={
@@ -58,7 +64,18 @@ export default function ArticleList() {
             extra={
               <Space size="middle">
                 <Text type="secondary">作者: {article.author}</Text>
-                <Text type="secondary">{article.date}</Text>
+                <Text type="secondary">{new Date(article.date).toLocaleDateString()}</Text>
+                <Button 
+                  icon={<EditOutlined />} 
+                  size="small"
+                  onClick={() => navigate(`/admin?edit=${article.id}`)}
+                />
+                <Button 
+                  icon={<DeleteOutlined />} 
+                  size="small" 
+                  danger
+                  onClick={() => handleDelete(article.id)}
+                />
               </Space>
             }
             variant
@@ -75,4 +92,19 @@ export default function ArticleList() {
       </Space>
     </div>
   );
+}
+
+// 服务端获取数据
+export async function getServerSideProps() {
+  try {
+    const articles = await articleService.getArticles();
+    return {
+      initialArticles: articles
+    };
+  } catch (error) {
+    console.error('Error fetching articles:', error);
+    return {
+      initialArticles: []
+    };
+  }
 }

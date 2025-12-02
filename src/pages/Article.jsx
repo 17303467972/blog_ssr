@@ -1,33 +1,31 @@
 // src/pages/Article.jsx
 import { useParams, Link } from 'react-router-dom';
-import { Typography, FloatButton, Divider, Space } from 'antd';
+import { Typography, FloatButton, Divider, Space, message } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
+import { useEffect, useState } from 'react';
+import { articleService } from '../api/articleService';
 
 const { Title, Text, Paragraph } = Typography;
 
-// 同样使用模拟数据
-const mockArticles = [
-  {
-    id: 1,
-    title: 'Getting Started with React SSR',
-    content: `
-      <h3>What is SSR?</h3>
-      <p>Server-Side Rendering (SSR) is a technique where a web page is rendered on the server rather than in the browser. This means that when a user requests a page, the server sends back a fully rendered HTML document.</p>
-      <h3>Benefits of SSR</h3>
-      <ul>
-        <li>Improved SEO: Search engines can easily crawl the fully rendered page.</li>
-        <li>Faster Initial Load: Users see content faster, especially on slow devices or networks.</li>
-        <li>Better Performance for Core Web Vitals: Like Largest Contentful Paint (LCP).</li>
-      </ul>
-      <p>This is a simplified example, but in a real SSR app, this content would come from a database and be rendered on the server before being sent to the client.</p>
-    `,
-    date: '2023-10-25',
-  },
-];
-
-export default function Article() {
+export default function Article({ initialArticle }) {
   const { id } = useParams();
-  const article = mockArticles.find((a) => a.id === parseInt(id));
+  const [article, setArticle] = useState(initialArticle);
+
+  useEffect(() => {
+    // 客户端渲染时获取数据
+    if (!initialArticle) {
+      fetchArticle();
+    }
+  }, [initialArticle, id]);
+
+  const fetchArticle = async () => {
+    try {
+      const data = await articleService.getArticle(id);
+      setArticle(data);
+    } catch (error) {
+      message.error(error.message);
+    }
+  };
 
   if (!article) {
     return (
@@ -44,7 +42,7 @@ export default function Article() {
   return (
     <div style={{ padding: '30px 50px', maxWidth: '800px', margin: '0 auto' }}>
       <Space orientation="horizontal" style={{ marginBottom: '20px' }}>
-        <Link to="/">
+        <Link to="/articles">
           <Text type="link" icon={<ArrowLeftOutlined />}>Back to Articles</Text>
         </Link>
       </Space>
@@ -54,7 +52,7 @@ export default function Article() {
           {article.title}
         </Title>
         <Text type="secondary" style={{ display: 'block', textAlign: 'center', marginBottom: '30px' }}>
-          {article.date}
+          {new Date(article.date).toLocaleDateString()} • {article.author}
         </Text>
         <Divider />
         {/* 使用 dangerouslySetInnerHTML 来渲染 HTML 内容 */}
@@ -64,4 +62,20 @@ export default function Article() {
       <FloatButton.BackTop />
     </div>
   );
+}
+
+// 服务端获取数据
+export async function getServerSideProps(context) {
+  const { id } = context.params;
+  try {
+    const article = await articleService.getArticle(id);
+    return {
+      initialArticle: article
+    };
+  } catch (error) {
+    console.error(`Error fetching article ${id}:`, error);
+    return {
+      initialArticle: null
+    };
+  }
 }

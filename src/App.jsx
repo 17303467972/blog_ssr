@@ -11,7 +11,7 @@ import './App.css';
 
 const { Content } = Layout;
 
-function App() {
+function App({ pageProps = {} }) {
   return (
     <Router>
       <Layout style={{ minHeight: '100vh' }}>
@@ -19,8 +19,14 @@ function App() {
         <Content style={{ flex: 1, background: '#fff' }}>
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/articles" element={<ArticleList />} />
-            <Route path="/articles/:id" element={<Article />} />
+            <Route 
+              path="/articles" 
+              element={<ArticleList {...pageProps} />} 
+            />
+            <Route 
+              path="/articles/:id" 
+              element={<Article {...pageProps} />} 
+            />
             <Route path="/admin" element={<Admin />} />
           </Routes>
         </Content>

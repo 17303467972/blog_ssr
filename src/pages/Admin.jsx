@@ -1,21 +1,62 @@
 // src/pages/Admin.jsx
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Form, Input, Button, Card, Typography, Divider } from 'antd';
-import { SaveOutlined } from '@ant-design/icons';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Form, Input, Button, Card, Typography, Divider, message } from 'antd';
+import { SaveOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { articleService } from '../api/articleService';
 
-const { Title, Text } = Typography;
+const { Title, Text, Link } = Typography;
 const { TextArea } = Input;
 
 export default function Admin() {
   const [form] = Form.useForm();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get('edit');
 
-  const onFinish = (values) => {
-    console.log('Success:', values);
-    // 模拟提交成功
-    form.resetFields(); // 重置表单
-    navigate('/'); // 跳转到首页
+  useEffect(() => {
+    // 如果是编辑模式，获取文章数据
+    if (editId) {
+      fetchArticleToEdit();
+    }
+  }, [editId, form]);
+
+  const fetchArticleToEdit = async () => {
+    try {
+      const article = await articleService.getArticle(editId);
+      form.setFieldsValue({
+        title: article.title,
+        content: article.content
+      });
+    } catch (error) {
+      message.error(error.message);
+    }
+  };
+
+  const onFinish = async (values) => {
+    try {
+      // 添加作者信息（实际应用中应该从登录用户获取）
+      const articleData = {
+        ...values,
+        author: 'yy zhang'
+      };
+
+      if (editId) {
+        // 更新文章
+        await articleService.updateArticle(editId, articleData);
+        message.success('Article updated successfully');
+      } else {
+        // 创建新文章
+        await articleService.createArticle(articleData);
+        message.success('Article created successfully');
+      }
+      
+      form.resetFields();
+      navigate('/articles');
+    } catch (error) {
+      message.error(error.message);
+      console.log('Failed:', error);
+    }
   };
 
   const onFinishFailed = (errorInfo) => {
@@ -25,8 +66,13 @@ export default function Admin() {
   return (
     <div style={{ padding: '30px 50px', maxWidth: '800px', margin: '0 auto' }}>
       <Title level={2} style={{ textAlign: 'center', marginBottom: '30px' }}>
-        Create New Article
+        {editId ? 'Edit Article' : 'Create New Article'}
       </Title>
+      
+      <Link to="/articles" style={{ marginBottom: '20px', display: 'inline-block' }}>
+        <Text type="link" icon={<ArrowLeftOutlined />}>Back to Articles</Text>
+      </Link>
+      
       <Card variant>
         <Form
           form={form}
@@ -57,7 +103,7 @@ export default function Admin() {
 
           <Form.Item>
             <Button type="primary" htmlType="submit" block icon={<SaveOutlined />}>
-              Publish Article
+              {editId ? 'Update Article' : 'Publish Article'}
             </Button>
           </Form.Item>
         </Form>
